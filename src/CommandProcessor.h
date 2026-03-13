@@ -25,6 +25,12 @@ class CommandProcessor {
   void processCommand();
   void serviceDisplay();
 
+  // Debug timing (written by processCommand, read by main loop)
+  uint32_t dbg_decode_us = 0;
+  uint32_t dbg_fill_us = 0;
+  uint32_t dbg_frame_bytes = 0;
+  uint32_t dbg_stream_count = 0;
+
  private:
   NetworkManager &net_;
   SdManager      &sd_;

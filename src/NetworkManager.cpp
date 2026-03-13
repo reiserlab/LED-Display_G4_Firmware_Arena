@@ -32,12 +32,19 @@ void NetworkManager::parseIncoming() {
   if (!client_ || !client_.connected()) return;
   if (cmd_ready_) return;  // previous command not consumed yet
 
+  dbg_frame_complete = false;
+  ++dbg_parse_attempts;
+
   // Read available bytes into rx_buf_
+  size_t rx_len_before = rx_len_;
+  uint32_t t_read_start = micros();
   while (client_.available() > 0 && rx_len_ < RX_BUF_SIZE) {
     int b = client_.read();
     if (b < 0) break;
     rx_buf_[rx_len_++] = (uint8_t)b;
   }
+  dbg_read_us = micros() - t_read_start;
+  dbg_read_bytes = rx_len_ - rx_len_before;
 
   if (rx_len_ == 0) return;
 
@@ -57,8 +64,11 @@ void NetworkManager::parseIncoming() {
     parsed_cmd_.cmd = AC::STREAM_FRAME_CMD;
     parsed_cmd_.is_stream = true;
     parsed_cmd_.data_len = total_needed;
+    uint32_t t_cpy = micros();
     memcpy(parsed_cmd_.data, rx_buf_, total_needed);
+    dbg_memcpy_us = micros() - t_cpy;
     cmd_ready_ = true;
+    dbg_frame_complete = true;
 
     // Shift remaining bytes
     size_t consumed = total_needed;
@@ -90,10 +100,12 @@ void NetworkManager::parseIncoming() {
 
 void NetworkManager::flushResponses() {
   if (!client_ || !client_.connected()) return;
-  if (resp_len_ == 0) return;
+  if (resp_len_ == 0) { dbg_flush_us = 0; return; }
 
+  uint32_t t0 = micros();
   client_.write(resp_buf_, resp_len_);
   client_.flush();
+  dbg_flush_us = micros() - t0;
   resp_len_ = 0;
 }
 

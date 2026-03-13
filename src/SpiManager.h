@@ -49,6 +49,9 @@ class SpiManager {
   // Flag set by refresh timer ISR — checked in main loop.
   volatile bool refreshFlag = false;
 
+  // Debug timing (written by transferFrame, read by main loop)
+  uint32_t dbg_transfer_us = 0;
+
  private:
   SPIClass *region_spi_[AC::constants::region_count_per_frame]
       = { &SPI, &SPI1 };
@@ -58,6 +61,11 @@ class SpiManager {
 
   static SpiManager *instance_;
   static void refreshISR();
+
+  // DMA completion for parallel SPI transfers
+  EventResponder dmaEvent_;
+  static volatile bool dmaComplete_;
+  static void dmaISR(EventResponderRef event);
 
   void enablePanelSelect(uint8_t row, uint8_t col);
   void disablePanelSelect(uint8_t row, uint8_t col);

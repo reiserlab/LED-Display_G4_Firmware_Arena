@@ -3,9 +3,17 @@
 using namespace AC::constants;
 
 SpiManager *SpiManager::instance_ = nullptr;
+volatile bool SpiManager::dmaComplete_ = false;
+
+void SpiManager::dmaISR(EventResponderRef) {
+  dmaComplete_ = true;
+}
 
 void SpiManager::begin() {
   instance_ = this;
+
+  // Set up DMA completion event for parallel SPI transfers
+  dmaEvent_.attachImmediate(dmaISR);
 
   // Initialize SPI buses
   for (uint8_t r = 0; r < region_count_per_frame; ++r) {
@@ -61,13 +69,22 @@ void SpiManager::disablePanelSelect(uint8_t row, uint8_t col) {
 
 void SpiManager::transferPanelSet(const uint8_t *buffer, uint16_t &pos,
                                   uint8_t panel_byte_count) {
-  for (uint8_t r = 0; r < region_count_per_frame; ++r) {
-    region_spi_[r]->transfer(buffer + pos, nullptr, panel_byte_count);
-    pos += panel_byte_count;
-  }
+  // Start async DMA transfer on region 0 (SPI)
+  dmaComplete_ = false;
+  region_spi_[0]->transfer(buffer + pos, nullptr, panel_byte_count, dmaEvent_);
+
+  // Blocking transfer on region 1 (SPI1) runs simultaneously
+  region_spi_[1]->transfer(buffer + pos + panel_byte_count, nullptr,
+                           panel_byte_count);
+
+  // Wait for region 0 DMA to complete
+  while (!dmaComplete_) { /* spin */ }
+
+  pos += panel_byte_count * region_count_per_frame;
 }
 
 void SpiManager::transferFrame(const uint8_t *buffer, bool grayscale) {
+  uint32_t t0 = micros();
   uint8_t panel_byte_count = grayscale
       ? byte_count_per_panel_grayscale
       : byte_count_per_panel_binary;
@@ -80,6 +97,7 @@ void SpiManager::transferFrame(const uint8_t *buffer, bool grayscale) {
       disablePanelSelect(row, col);
     }
   }
+  dbg_transfer_us = micros() - t0;
 }
 
 uint16_t SpiManager::decodePatternFrame(const uint8_t *pattern_buf,

@@ -157,10 +157,18 @@ void CommandProcessor::handleStreamCommand(const ParsedCommand &cmd) {
   }
 
   grayscale_ = gs;
+  dbg_frame_bytes = frame_byte_count;
 
   // Decode and fill frame buffer
+  uint32_t t0 = micros();
   spi_.decodePatternFrame(frame_data, grayscale_);
+  uint32_t t1 = micros();
   spi_.fillBufferFromDecoded(frame_buf_, grayscale_);
+  uint32_t t2 = micros();
+
+  dbg_decode_us = t1 - t0;
+  dbg_fill_us = t2 - t1;
+  ++dbg_stream_count;
 
   // Transition to streaming
   if (state_ != ArenaState::STREAMING_FRAME) {
