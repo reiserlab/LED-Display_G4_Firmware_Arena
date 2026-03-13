@@ -35,13 +35,14 @@ void NetworkManager::parseIncoming() {
   dbg_frame_complete = false;
   ++dbg_parse_attempts;
 
-  // Read available bytes into rx_buf_
+  // Read available bytes into rx_buf_ (bulk read)
   size_t rx_len_before = rx_len_;
   uint32_t t_read_start = micros();
-  while (client_.available() > 0 && rx_len_ < RX_BUF_SIZE) {
-    int b = client_.read();
-    if (b < 0) break;
-    rx_buf_[rx_len_++] = (uint8_t)b;
+  int avail = client_.available();
+  if (avail > 0) {
+    size_t to_read = min((size_t)avail, RX_BUF_SIZE - rx_len_);
+    int n = client_.read(rx_buf_ + rx_len_, to_read);
+    if (n > 0) rx_len_ += n;
   }
   dbg_read_us = micros() - t_read_start;
   dbg_read_bytes = rx_len_ - rx_len_before;
