@@ -1,0 +1,6 @@
+# PlatformIO
+.pio/
+
+# pixi environments
+.pixi/*
+!.pixi/config.toml

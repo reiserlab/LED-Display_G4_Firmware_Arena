@@ -1,0 +1,19 @@
+#pragma once
+#include <stdint.h>
+
+namespace AC {
+
+enum ArenaCommands : uint8_t {
+  ALL_OFF_CMD                 = 0x00,
+  DISPLAY_RESET_CMD           = 0x01,
+  SWITCH_GRAYSCALE_CMD        = 0x06,
+  TRIAL_PARAMS_CMD            = 0x08,
+  SET_REFRESH_RATE_CMD        = 0x16,
+  STOP_DISPLAY_CMD            = 0x30,
+  STREAM_FRAME_CMD            = 0x32,
+  GET_ETHERNET_IP_ADDRESS_CMD = 0x66,
+  SET_FRAME_POSITION_CMD      = 0x70,
+  ALL_ON_CMD                  = 0xFF,
+};
+
+} // namespace AC
