@@ -75,7 +75,7 @@ constexpr uint8_t panel_set_select_pins[panel_count_per_region_row_max]
         { 5, 10, 30, 21, 40, 35 } };
 
 // SPI
-constexpr uint32_t spi_clock_speed = 4000000;
+constexpr uint32_t spi_clock_speed = 5000000;
 constexpr uint8_t spi_bit_order = MSBFIRST;
 constexpr uint8_t spi_data_mode = 0x00;  // SPI_MODE0
 constexpr uint8_t region_cipo_pins[region_count_per_frame] = { 12, 1 };
@@ -99,8 +99,8 @@ constexpr uint16_t byte_count_per_pattern_frame_max
       + 7; // 7947
 
 // Display refresh defaults
-constexpr uint32_t refresh_rate_grayscale_default = 200;
-constexpr uint32_t refresh_rate_binary_default = 500;
+constexpr uint32_t refresh_rate_grayscale_default = 300;
+constexpr uint32_t refresh_rate_binary_default = 1000;
 
 // Ethernet
 constexpr uint16_t ethernet_server_port = 62222;

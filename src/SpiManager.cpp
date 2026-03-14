@@ -84,7 +84,6 @@ void SpiManager::transferPanelSet(const uint8_t *buffer, uint16_t &pos,
 }
 
 void SpiManager::transferFrame(const uint8_t *buffer, bool grayscale) {
-  uint32_t t0 = micros();
   uint8_t panel_byte_count = grayscale
       ? byte_count_per_panel_grayscale
       : byte_count_per_panel_binary;
@@ -97,7 +96,6 @@ void SpiManager::transferFrame(const uint8_t *buffer, bool grayscale) {
       disablePanelSelect(row, col);
     }
   }
-  dbg_transfer_us = micros() - t0;
 }
 
 uint16_t SpiManager::decodePatternFrame(const uint8_t *pattern_buf,

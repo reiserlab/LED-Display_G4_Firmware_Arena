@@ -32,14 +32,6 @@ class NetworkManager {
 
   const char *ipAddress() const { return ip_str_; }
 
-  // Debug timing (written by serviceTcp/flushResponses, read by main loop)
-  uint32_t dbg_read_us = 0;        // time in byte read loop
-  uint32_t dbg_read_bytes = 0;     // bytes read this call
-  uint32_t dbg_parse_attempts = 0; // parseIncoming calls since last complete frame
-  bool     dbg_frame_complete = false;
-  uint32_t dbg_memcpy_us = 0;      // memcpy time on frame completion
-  uint32_t dbg_flush_us = 0;       // time in flushResponses (write+flush)
-
  private:
   EthernetServer server_{AC::constants::ethernet_server_port};
   EthernetClient client_;

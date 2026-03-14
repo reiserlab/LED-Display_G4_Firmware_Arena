@@ -49,9 +49,6 @@ class SpiManager {
   // Flag set by refresh timer ISR — checked in main loop.
   volatile bool refreshFlag = false;
 
-  // Debug timing (written by transferFrame, read by main loop)
-  uint32_t dbg_transfer_us = 0;
-
  private:
   SPIClass *region_spi_[AC::constants::region_count_per_frame]
       = { &SPI, &SPI1 };
