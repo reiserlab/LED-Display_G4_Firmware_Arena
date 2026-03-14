@@ -1,29 +1,79 @@
 #include "SdManager.h"
+#include <cstring>
 
 using namespace AC;
 using namespace AC::constants;
 
 bool SdManager::begin() {
-  return sd_.begin(SdioConfig(FIFO_SDIO));
+  if (!sd_.begin(SdioConfig(FIFO_SDIO))) return false;
+  return scanPatternDirectory();
 }
 
-bool SdManager::openPatternDirectory() {
-  return pattern_dir_.open(pattern_dir_str);
+bool SdManager::scanPatternDirectory() {
+  pattern_file_count_ = 0;
+
+  // Heap-allocate sort keys; freed after sorting
+  auto sort_keys = new char[max_pattern_files][sort_key_length];
+  if (!sort_keys) return false;
+
+  FsFile dir;
+  if (!dir.open(pattern_dir_str)) { delete[] sort_keys; return false; }
+
+  FsFile entry;
+  char name_buf[sort_key_length];
+  while (entry.openNext(&dir, O_RDONLY)) {
+    entry.getName(name_buf, sizeof(name_buf));
+    if (entry.isDir() || name_buf[0] == '.') {
+      entry.close();
+      continue;
+    }
+    if (pattern_file_count_ >= max_pattern_files) {
+      entry.close();
+      break;
+    }
+    strncpy(sort_keys[pattern_file_count_], name_buf, sort_key_length);
+    pattern_dir_indices_[pattern_file_count_] = entry.dirIndex();
+    entry.close();
+    pattern_file_count_++;
+  }
+  dir.close();
+
+  // Insertion sort alphabetically so pattern_id mapping is deterministic
+  char tmp_key[sort_key_length];
+  uint32_t tmp_idx;
+  for (uint16_t i = 1; i < pattern_file_count_; i++) {
+    if (memcmp(sort_keys[i], sort_keys[i - 1], sort_key_length) < 0) {
+      memcpy(tmp_key, sort_keys[i], sort_key_length);
+      tmp_idx = pattern_dir_indices_[i];
+      uint16_t j = i;
+      do {
+        memcpy(sort_keys[j], sort_keys[j - 1], sort_key_length);
+        pattern_dir_indices_[j] = pattern_dir_indices_[j - 1];
+        j--;
+      } while (j > 0 && memcmp(tmp_key, sort_keys[j - 1], sort_key_length) < 0);
+      memcpy(sort_keys[j], tmp_key, sort_key_length);
+      pattern_dir_indices_[j] = tmp_idx;
+    }
+  }
+
+  delete[] sort_keys;
+  return true;
 }
 
 uint64_t SdManager::openPatternFile(uint16_t pattern_id) {
-  if (!pattern_dir_ || !pattern_dir_.isDir()) return 0;
+  // pattern_id is 1-based
+  if (pattern_id == 0 || pattern_id > pattern_file_count_) return 0;
 
   pattern_file_.close();
 
-  // Open by directory entry index (matching ArenaController convention)
-  uint32_t dir_index = (pattern_id - 1) * 2 + 3;
-  bool ok = pattern_file_.open(&pattern_dir_, dir_index, O_RDONLY);
-  if (!ok) return 0;
-  if (pattern_file_.isDir()) {
-    pattern_file_.close();
+  FsFile dir;
+  if (!dir.open(pattern_dir_str)) return 0;
+
+  if (!pattern_file_.open(&dir, pattern_dir_indices_[pattern_id - 1], O_RDONLY)) {
+    dir.close();
     return 0;
   }
+  dir.close();
 
   return pattern_file_.fileSize();
 }

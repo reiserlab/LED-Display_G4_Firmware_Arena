@@ -255,8 +255,6 @@ void CommandProcessor::enterAllOn() {
 }
 
 bool CommandProcessor::openAndValidatePattern(uint16_t pid) {
-  if (!sd_.openPatternDirectory()) return false;
-
   uint64_t file_size = sd_.openPatternFile(pid);
   if (file_size == 0) return false;
 

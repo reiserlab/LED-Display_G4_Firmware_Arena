@@ -17,8 +17,8 @@ void setupInterruptPriorities();
 void setup() {
   Serial.begin(115200);
 
-  spi.begin();
   sdMgr.begin();
+  spi.begin();
   net.begin();
   cmdProc.begin();
 

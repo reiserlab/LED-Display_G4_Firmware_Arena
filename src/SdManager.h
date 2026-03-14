@@ -10,7 +10,6 @@ class SdManager {
   bool begin();
 
   // Pattern file operations
-  bool openPatternDirectory();
   uint64_t openPatternFile(uint16_t pattern_id);
   void closePatternFile();
   AC::PatternHeader rewindAndReadHeader();
@@ -21,9 +20,18 @@ class SdManager {
   uint64_t byteCountPerFrameGrayscale() const;
   uint64_t byteCountPerFrameBinary() const;
 
+  uint16_t patternFileCount() const { return pattern_file_count_; }
+
  private:
+  static constexpr uint16_t max_pattern_files = 10000;
+  static constexpr uint8_t sort_key_length = 32;
+
+  bool scanPatternDirectory();
+
   SdFs sd_;
-  FsFile pattern_dir_;
   FsFile pattern_file_;
   AC::PatternHeader header_;
+
+  uint32_t pattern_dir_indices_[max_pattern_files];
+  uint16_t pattern_file_count_ = 0;
 };

@@ -1,34 +1,42 @@
-# Teensy 4.1 Low-Latency TCP + SD + SPI Skeleton
+# G4.1 Arena Skeleton
 
-Target: Teensy 4.1, Teensyduino/Arduino core.
+Reimplements the G4.1-ArenaController for Teensy 4.1 without the QP/state-machine framework. Uses a simple main loop with state tracking.
 
-This project provides:
+- TCP command server (QNEthernet, port 62222, G4 binary protocol).
+- Pattern file playback from SD card (SdFat, SDIO).
+- Two SPI buses driving LED panels.
 
-- TCP command server using QNEthernet (TCP, low latency).
-- SD access using SdFat on the built-in SDIO.
-- Two SPI buses (SPI and SPI1) with high-priority handling.
-- A simple command queue and processor.
+## Build
 
-## File list
+Requires [PlatformIO](https://platformio.org/) managed via [pixi](https://pixi.sh/).
 
-- `README.md` — this file.
-- `NetworkManager.h` / `NetworkManager.cpp` — TCP server + command queue + response buffer.
-- `SdManager.h` / `SdManager.cpp` — SDIO-based SdFat helpers.
-- `SpiManager.h` / `SpiManager.cpp` — SPI bus setup and basic transfer helpers.
-- `CommandProcessor.h` / `CommandProcessor.cpp` — maps commands to SD/SPI operations.
-- `main.cpp` — integrates all managers and sets interrupt priorities.
+```
+pixi run deploy      # compile and upload
+```
 
-## Setup instructions
+## Source files
 
-1. Create a new Arduino/Teensy project (or a new folder).
-2. Install dependencies:
-   - QNEthernet (via Library Manager or Git, ssilverman/QNEthernet).
-   - SdFat (Teensy-compatible, from Teensyduino or Library Manager).
-3. Copy all `.h` and `.cpp` files into the project.
-4. Select board: **Teensy 4.1**.
-5. Build and upload.
+All source files live in `src/`.
 
-You must still:
+| File | Purpose |
+|------|---------|
+| `main.cpp` | Setup, main loop, interrupt priorities |
+| `NetworkManager.h/.cpp` | TCP server, G4 binary protocol parsing, response buffer |
+| `SdManager.h/.cpp` | SD card init, pattern directory scan, frame reads |
+| `SpiManager.h/.cpp` | Dual SPI bus setup, panel select matrix, frame transfers |
+| `CommandProcessor.h/.cpp` | Arena state machine, command handling, pattern playback timing |
+| `constants.h` | Hardware constants, panel geometry, timing, protocol values |
+| `commands.h` | `ArenaCommands` enum |
+| `modes.h` | `ControlModes` enum |
+| `PatternHeader.h` | 7-byte pattern file header struct |
 
-- Fill in the correct IRQ names for NVIC priority setup in `setupInterruptPriorities()`.
-- Define the actual command semantics (e.g., what `type = 0x01` means, file paths, SPI behavior).
+## SD card pattern files
+
+Pattern files must be placed in `/patterns/` on the SD card. At startup, `SdManager` scans this directory and builds an alphabetically sorted list. Pattern IDs (1-based) map to position in that sorted list.
+
+### Limitations
+
+- **Maximum 10,000 files.** Files beyond this limit are silently ignored.
+- **Filename length.** Names are truncated to 32 characters. Files whose names differ only after the 32nd character will have nondeterministic ordering.
+- **Hidden files and subdirectories are skipped.** Any entry starting with `.` or any subdirectory inside `/patterns/` is excluded from the scan.
+- **Scan runs once at startup.** Adding or removing files on the SD card requires a reboot to update the pattern list.
