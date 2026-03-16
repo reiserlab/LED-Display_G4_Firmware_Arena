@@ -9,14 +9,18 @@ SdManager        sdMgr;
 SpiManager       spi;
 CommandProcessor cmdProc(net, sdMgr, spi);
 
+#ifdef DEBUG_SERIAL
 elapsedMillis sinceIpPrint;
 static constexpr uint32_t IP_PRINT_INTERVAL_MS = 5000;
+#endif
 
 void blinkStartupPattern();
 void setupInterruptPriorities();
 
 void setup() {
+#ifdef DEBUG_SERIAL
   Serial.begin(115200);
+#endif
 
   sdMgr.begin();
   net.begin();
@@ -34,10 +38,12 @@ void loop() {
   cmdProc.serviceDisplay(); // 3. Pattern playback, frame transfers
   net.flushResponses();     // 4. Send ready responses over TCP
 
+#ifdef DEBUG_SERIAL
   if (Serial && sinceIpPrint >= IP_PRINT_INTERVAL_MS) {
     sinceIpPrint = 0;
-    Serial.printf("IP: %s\n", net.ipAddress());
+    DBG_PRINTF("IP: %s\n", net.ipAddress());
   }
+#endif
 }
 
 void blinkStartupPattern() {

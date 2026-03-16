@@ -67,8 +67,8 @@ uint64_t SdManager::openPatternFile(uint16_t pattern_id) {
 
   // pattern_id is 1-based
   if (pattern_id == 0 || pattern_id > pattern_file_count_) {
-    Serial.printf("[SdManager::openPatternFile] pattern_id=%u OUT OF RANGE (count=%u)\n",
-                  pattern_id, pattern_file_count_);
+    DBG_PRINTF("[SdManager::openPatternFile] pattern_id=%u OUT OF RANGE (count=%u)\n",
+               pattern_id, pattern_file_count_);
     return 0;
   }
 
@@ -127,10 +127,9 @@ uint64_t SdManager::openPatternFile(uint16_t pattern_id) {
     }
   }
   uint32_t t5 = micros();
-
-  Serial.printf("[SdManager::openPatternFile] pattern_id=%u file_index=%u dir_index=%lu size=%lu cached=%u  close=%lu open=%lu fileSize=%lu load=%lu total=%lu us\n",
-                pattern_id, file_index, pattern_dir_indices_[file_index], (uint32_t)size,
-                cached, t2 - t1, t3 - t2, t4 - t3, t5 - t4, t5 - t0);
+  DBG_PRINTF("[SdManager::openPatternFile] pattern_id=%u file_index=%u dir_index=%lu size=%lu cached=%u  close=%lu open=%lu fileSize=%lu load=%lu total=%lu us\n",
+             pattern_id, file_index, pattern_dir_indices_[file_index], (uint32_t)size,
+             cached, t2 - t1, t3 - t2, t4 - t3, t5 - t4, t5 - t0);
   return size;
 }
 
@@ -140,8 +139,7 @@ void SdManager::closePatternFile() {
   pattern_cache_ = nullptr;
   pattern_cache_size_ = 0;
   pattern_file_.close();
-  uint32_t dt = micros() - t0;
-  Serial.printf("[SdManager::closePatternFile]  %lu us\n", dt);
+  DBG_PRINTF("[SdManager::closePatternFile]  %lu us\n", micros() - t0);
 }
 
 PatternHeader SdManager::rewindAndReadHeader() {
@@ -152,12 +150,11 @@ PatternHeader SdManager::rewindAndReadHeader() {
     pattern_file_.rewind();
     pattern_file_.read(&header_, pattern_header_size);
   }
-  uint32_t dt = micros() - t0;
-  Serial.printf("[SdManager::rewindAndReadHeader] frames_x=%u frames_y=%u gs=%u rows=%u cols=%u  %lu us\n",
-                (unsigned)header_.frame_count_x, (unsigned)header_.frame_count_y,
-                (unsigned)header_.grayscale_value,
-                (unsigned)header_.panel_count_per_frame_row,
-                (unsigned)header_.panel_count_per_frame_col, dt);
+  DBG_PRINTF("[SdManager::rewindAndReadHeader] frames_x=%u frames_y=%u gs=%u rows=%u cols=%u  %lu us\n",
+             (unsigned)header_.frame_count_x, (unsigned)header_.frame_count_y,
+             (unsigned)header_.grayscale_value,
+             (unsigned)header_.panel_count_per_frame_row,
+             (unsigned)header_.panel_count_per_frame_col, micros() - t0);
   return header_;
 }
 
@@ -175,29 +172,24 @@ void SdManager::readFrameFromFile(uint8_t *buffer, uint16_t frame_index,
     pattern_file_.read(buffer, byte_count_per_frame);
   }
 
-  uint32_t dt = micros() - t0;
-  Serial.printf("[SdManager::readFrameFromFile] frame_index=%u bytes=%lu  %lu us\n",
-                frame_index, (uint32_t)byte_count_per_frame, dt);
+  DBG_PRINTF("[SdManager::readFrameFromFile] frame_index=%u bytes=%lu  %lu us\n",
+             frame_index, (uint32_t)byte_count_per_frame, micros() - t0);
 }
 
 uint64_t SdManager::byteCountPerFrameGrayscale() const {
-  uint32_t t0 = micros();
   uint64_t result = (uint64_t)byte_count_per_panel_grayscale
                         * panel_count_per_frame_row * panel_count_per_frame_col
                     + (uint64_t)pattern_row_signifier_byte_count_per_row
                           * panel_count_per_frame_row;
-  uint32_t dt = micros() - t0;
-  Serial.printf("[SdManager::byteCountPerFrameGrayscale] result=%lu  %lu us\n", (uint32_t)result, dt);
+  DBG_PRINTF("[SdManager::byteCountPerFrameGrayscale] result=%lu\n", (uint32_t)result);
   return result;
 }
 
 uint64_t SdManager::byteCountPerFrameBinary() const {
-  uint32_t t0 = micros();
   uint64_t result = (uint64_t)byte_count_per_panel_binary
                         * panel_count_per_frame_row * panel_count_per_frame_col
                     + (uint64_t)pattern_row_signifier_byte_count_per_row
                           * panel_count_per_frame_row;
-  uint32_t dt = micros() - t0;
-  Serial.printf("[SdManager::byteCountPerFrameBinary] result=%lu  %lu us\n", (uint32_t)result, dt);
+  DBG_PRINTF("[SdManager::byteCountPerFrameBinary] result=%lu\n", (uint32_t)result);
   return result;
 }

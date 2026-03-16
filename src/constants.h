@@ -1,6 +1,14 @@
 #pragma once
 #include <Arduino.h>
 
+// Define DEBUG_SERIAL to enable Serial.printf diagnostics.
+// When undefined, all debug prints and their formatting are compiled out.
+#ifdef DEBUG_SERIAL
+  #define DBG_PRINTF(...) do { Serial.printf("[%lu] ", millis()); Serial.printf(__VA_ARGS__); } while(0)
+#else
+  #define DBG_PRINTF(...) ((void)0)
+#endif
+
 namespace AC {
 namespace constants {
 
