@@ -29,6 +29,7 @@ class SdManager {
   bool scanPatternDirectory();
 
   SdFs sd_;
+  FsFile pattern_dir_;
   FsFile pattern_file_;
   AC::PatternHeader header_;
 

@@ -6,7 +6,9 @@ using namespace AC::constants;
 
 bool SdManager::begin() {
   if (!sd_.begin(SdioConfig(FIFO_SDIO))) return false;
-  return scanPatternDirectory();
+  if (!scanPatternDirectory()) return false;
+  if (!pattern_dir_.open(pattern_dir_str)) return false;
+  return true;
 }
 
 bool SdManager::scanPatternDirectory() {
@@ -61,51 +63,96 @@ bool SdManager::scanPatternDirectory() {
 }
 
 uint64_t SdManager::openPatternFile(uint16_t pattern_id) {
+  uint32_t t0 = micros();
+
   // pattern_id is 1-based
-  if (pattern_id == 0 || pattern_id > pattern_file_count_) return 0;
-
-  pattern_file_.close();
-
-  FsFile dir;
-  if (!dir.open(pattern_dir_str)) return 0;
-
-  if (!pattern_file_.open(&dir, pattern_dir_indices_[pattern_id - 1], O_RDONLY)) {
-    dir.close();
+  if (pattern_id == 0 || pattern_id > pattern_file_count_) {
+    Serial.printf("[SdManager::openPatternFile] pattern_id=%u OUT OF RANGE (count=%u)\n",
+                  pattern_id, pattern_file_count_);
     return 0;
   }
-  dir.close();
 
-  return pattern_file_.fileSize();
+  uint16_t file_index = pattern_id - 1;
+
+  uint32_t t1 = micros();
+  pattern_file_.close();
+  uint32_t t2 = micros();
+
+  if (!pattern_file_.open(&pattern_dir_, pattern_dir_indices_[file_index], O_RDONLY)) {
+    return 0;
+  }
+  uint32_t t3 = micros();
+
+  uint64_t size = pattern_file_.fileSize();
+  uint32_t t4 = micros();
+
+  // Pre-warm FAT cache: seek to end forces SdFat to traverse the full
+  // cluster chain, caching the FAT sector(s) so that subsequent reads
+  // don't stall on cluster boundary crossings.  Must be LAST operation
+  // before return — getName() reads directory clusters whose FAT lookups
+  // would evict the pattern file's FAT entries from the single-sector cache.
+  pattern_file_.seek(size > 0 ? size - 1 : 0);
+  uint8_t dummy;
+  pattern_file_.read(&dummy, 1);
+  pattern_file_.rewind();
+  uint32_t t5 = micros();
+
+  Serial.printf("[SdManager::openPatternFile] pattern_id=%u file_index=%u dir_index=%lu size=%lu  close=%lu open=%lu fileSize=%lu prewarm=%lu total=%lu us\n",
+                pattern_id, file_index, pattern_dir_indices_[file_index], (uint32_t)size,
+                t2 - t1, t3 - t2, t4 - t3, t5 - t4, t5 - t0);
+  return size;
 }
 
 void SdManager::closePatternFile() {
+  uint32_t t0 = micros();
   pattern_file_.close();
+  uint32_t dt = micros() - t0;
+  Serial.printf("[SdManager::closePatternFile]  %lu us\n", dt);
 }
 
 PatternHeader SdManager::rewindAndReadHeader() {
+  uint32_t t0 = micros();
   pattern_file_.rewind();
   pattern_file_.read(&header_, pattern_header_size);
+  uint32_t dt = micros() - t0;
+  Serial.printf("[SdManager::rewindAndReadHeader] frames_x=%u frames_y=%u gs=%u rows=%u cols=%u  %lu us\n",
+                (unsigned)header_.frame_count_x, (unsigned)header_.frame_count_y,
+                (unsigned)header_.grayscale_value,
+                (unsigned)header_.panel_count_per_frame_row,
+                (unsigned)header_.panel_count_per_frame_col, dt);
   return header_;
 }
 
 void SdManager::readFrameFromFile(uint8_t *buffer, uint16_t frame_index,
                                   uint64_t byte_count_per_frame) {
+  uint32_t t0 = micros();
   uint32_t file_position = pattern_header_size
                            + frame_index * byte_count_per_frame;
   pattern_file_.seek(file_position);
   pattern_file_.read(buffer, byte_count_per_frame);
+  uint32_t dt = micros() - t0;
+  Serial.printf("[SdManager::readFrameFromFile] frame_index=%u bytes=%lu  %lu us\n",
+                frame_index, (uint32_t)byte_count_per_frame, dt);
 }
 
 uint64_t SdManager::byteCountPerFrameGrayscale() const {
-  return (uint64_t)byte_count_per_panel_grayscale
-             * panel_count_per_frame_row * panel_count_per_frame_col
-         + (uint64_t)pattern_row_signifier_byte_count_per_row
-               * panel_count_per_frame_row;
+  uint32_t t0 = micros();
+  uint64_t result = (uint64_t)byte_count_per_panel_grayscale
+                        * panel_count_per_frame_row * panel_count_per_frame_col
+                    + (uint64_t)pattern_row_signifier_byte_count_per_row
+                          * panel_count_per_frame_row;
+  uint32_t dt = micros() - t0;
+  Serial.printf("[SdManager::byteCountPerFrameGrayscale] result=%lu  %lu us\n", (uint32_t)result, dt);
+  return result;
 }
 
 uint64_t SdManager::byteCountPerFrameBinary() const {
-  return (uint64_t)byte_count_per_panel_binary
-             * panel_count_per_frame_row * panel_count_per_frame_col
-         + (uint64_t)pattern_row_signifier_byte_count_per_row
-               * panel_count_per_frame_row;
+  uint32_t t0 = micros();
+  uint64_t result = (uint64_t)byte_count_per_panel_binary
+                        * panel_count_per_frame_row * panel_count_per_frame_col
+                    + (uint64_t)pattern_row_signifier_byte_count_per_row
+                          * panel_count_per_frame_row;
+  uint32_t dt = micros() - t0;
+  Serial.printf("[SdManager::byteCountPerFrameBinary] result=%lu  %lu us\n", (uint32_t)result, dt);
+  return result;
 }
