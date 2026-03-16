@@ -95,15 +95,27 @@ uint64_t SdManager::openPatternFile(uint16_t pattern_id) {
   // the FAT cache so sequential reads don't stall on cluster lookups.
   bool cached = false;
   if (size > 0) {
-    uint8_t *buf = (uint8_t *)malloc((uint32_t)size);
-    if (buf) {
-      pattern_file_.rewind();
-      if (pattern_file_.read(buf, (uint32_t)size) == (int32_t)(uint32_t)size) {
-        pattern_cache_ = buf;
-        pattern_cache_size_ = (uint32_t)size;
-        cached = true;
-      } else {
+    // Over-allocate by heap_reserve so that malloc only succeeds when
+    // there is enough headroom left for lwIP pbuf allocations, etc.
+    // We only use the first `size` bytes; the tail is freed immediately.
+    uint32_t probe_size = (uint32_t)size + heap_reserve;
+    if (probe_size > (uint32_t)size) {  // overflow guard
+      uint8_t *buf = (uint8_t *)malloc(probe_size);
+      if (buf) {
+        // Shrink to actual size by freeing and re-allocating, so the
+        // reserve bytes are returned to the heap.
         free(buf);
+        buf = (uint8_t *)malloc((uint32_t)size);
+      }
+      if (buf) {
+        pattern_file_.rewind();
+        if (pattern_file_.read(buf, (uint32_t)size) == (int32_t)(uint32_t)size) {
+          pattern_cache_ = buf;
+          pattern_cache_size_ = (uint32_t)size;
+          cached = true;
+        } else {
+          free(buf);
+        }
       }
     }
 

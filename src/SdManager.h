@@ -26,6 +26,12 @@ class SdManager {
   static constexpr uint16_t max_pattern_files = 10000;
   static constexpr uint8_t sort_key_length = 32;
 
+  // Heap bytes to keep free after caching a pattern file.
+  // lwIP (MEM_LIBC_MALLOC=1) allocates PBUF_RAM via malloc for every
+  // outgoing TCP segment.  This reserve guarantees those allocations
+  // still succeed while a pattern is cached.
+  static constexpr uint32_t heap_reserve = 32768;
+
   bool scanPatternDirectory();
 
   SdFs sd_;
