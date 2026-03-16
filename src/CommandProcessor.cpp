@@ -242,12 +242,14 @@ void CommandProcessor::serviceDisplay() {
 void CommandProcessor::enterAllOff() {
   spi_.disarmRefreshTimer();
   sd_.closePatternFile();
+  loaded_pattern_id_ = 0;
   state_ = ArenaState::ALL_OFF;
 }
 
 void CommandProcessor::enterAllOn() {
   spi_.disarmRefreshTimer();
   sd_.closePatternFile();
+  loaded_pattern_id_ = 0;
 
   spi_.fillBufferAllOn(frame_buf_, grayscale_);
   state_ = ArenaState::ALL_ON;
@@ -255,6 +257,11 @@ void CommandProcessor::enterAllOn() {
 }
 
 bool CommandProcessor::openAndValidatePattern(uint16_t pid) {
+  // Skip reopen when the same pattern is already loaded
+  if (pid == loaded_pattern_id_ && pid != 0) {
+    return true;
+  }
+
   uint64_t file_size = sd_.openPatternFile(pid);
   if (file_size == 0) return false;
 
@@ -286,6 +293,7 @@ bool CommandProcessor::openAndValidatePattern(uint16_t pid) {
 
   frame_count_ = hdr.frame_count_x;
   byte_count_per_frame_ = bcpf;
+  loaded_pattern_id_ = pid;
   return true;
 }
 

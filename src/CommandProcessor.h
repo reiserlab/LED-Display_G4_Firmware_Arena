@@ -42,6 +42,7 @@ class CommandProcessor {
 
   // Pattern playback state
   uint16_t pattern_id_ = 0;
+  uint16_t loaded_pattern_id_ = 0;  // pattern currently open on SD; 0 = none
   uint16_t frame_count_ = 0;
   uint16_t frame_index_ = 0;
   uint64_t byte_count_per_frame_ = 0;

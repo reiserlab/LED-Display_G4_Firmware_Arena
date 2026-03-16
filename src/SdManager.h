@@ -35,4 +35,12 @@ class SdManager {
 
   uint32_t pattern_dir_indices_[max_pattern_files];
   uint16_t pattern_file_count_ = 0;
+
+  // Whole-file RAM cache.  When the pattern file is small enough to
+  // malloc, the entire file is loaded at open time so that
+  // readFrameFromFile() and rewindAndReadHeader() are pure memcpy.
+  // For files that don't fit, pattern_cache_ stays nullptr and reads
+  // go to the SD card with a pre-warmed FAT cache.
+  uint8_t *pattern_cache_ = nullptr;
+  uint32_t pattern_cache_size_ = 0;
 };

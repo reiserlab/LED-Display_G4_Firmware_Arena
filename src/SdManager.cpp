@@ -75,6 +75,9 @@ uint64_t SdManager::openPatternFile(uint16_t pattern_id) {
   uint16_t file_index = pattern_id - 1;
 
   uint32_t t1 = micros();
+  free(pattern_cache_);
+  pattern_cache_ = nullptr;
+  pattern_cache_size_ = 0;
   pattern_file_.close();
   uint32_t t2 = micros();
 
@@ -86,25 +89,44 @@ uint64_t SdManager::openPatternFile(uint16_t pattern_id) {
   uint64_t size = pattern_file_.fileSize();
   uint32_t t4 = micros();
 
-  // Pre-warm FAT cache: seek to end forces SdFat to traverse the full
-  // cluster chain, caching the FAT sector(s) so that subsequent reads
-  // don't stall on cluster boundary crossings.  Must be LAST operation
-  // before return — getName() reads directory clusters whose FAT lookups
-  // would evict the pattern file's FAT entries from the single-sector cache.
-  pattern_file_.seek(size > 0 ? size - 1 : 0);
-  uint8_t dummy;
-  pattern_file_.read(&dummy, 1);
-  pattern_file_.rewind();
+  // Try to cache the entire file in RAM.  If malloc succeeds and the
+  // read completes, every subsequent access is a pure memcpy.
+  // If the file is too large for the heap, fall back to pre-warming
+  // the FAT cache so sequential reads don't stall on cluster lookups.
+  bool cached = false;
+  if (size > 0) {
+    uint8_t *buf = (uint8_t *)malloc((uint32_t)size);
+    if (buf) {
+      pattern_file_.rewind();
+      if (pattern_file_.read(buf, (uint32_t)size) == (int32_t)(uint32_t)size) {
+        pattern_cache_ = buf;
+        pattern_cache_size_ = (uint32_t)size;
+        cached = true;
+      } else {
+        free(buf);
+      }
+    }
+
+    if (!cached) {
+      pattern_file_.seek(size - 1);
+      uint8_t dummy;
+      pattern_file_.read(&dummy, 1);
+      pattern_file_.rewind();
+    }
+  }
   uint32_t t5 = micros();
 
-  Serial.printf("[SdManager::openPatternFile] pattern_id=%u file_index=%u dir_index=%lu size=%lu  close=%lu open=%lu fileSize=%lu prewarm=%lu total=%lu us\n",
+  Serial.printf("[SdManager::openPatternFile] pattern_id=%u file_index=%u dir_index=%lu size=%lu cached=%u  close=%lu open=%lu fileSize=%lu load=%lu total=%lu us\n",
                 pattern_id, file_index, pattern_dir_indices_[file_index], (uint32_t)size,
-                t2 - t1, t3 - t2, t4 - t3, t5 - t4, t5 - t0);
+                cached, t2 - t1, t3 - t2, t4 - t3, t5 - t4, t5 - t0);
   return size;
 }
 
 void SdManager::closePatternFile() {
   uint32_t t0 = micros();
+  free(pattern_cache_);
+  pattern_cache_ = nullptr;
+  pattern_cache_size_ = 0;
   pattern_file_.close();
   uint32_t dt = micros() - t0;
   Serial.printf("[SdManager::closePatternFile]  %lu us\n", dt);
@@ -112,8 +134,12 @@ void SdManager::closePatternFile() {
 
 PatternHeader SdManager::rewindAndReadHeader() {
   uint32_t t0 = micros();
-  pattern_file_.rewind();
-  pattern_file_.read(&header_, pattern_header_size);
+  if (pattern_cache_ && pattern_cache_size_ >= pattern_header_size) {
+    memcpy(&header_, pattern_cache_, pattern_header_size);
+  } else {
+    pattern_file_.rewind();
+    pattern_file_.read(&header_, pattern_header_size);
+  }
   uint32_t dt = micros() - t0;
   Serial.printf("[SdManager::rewindAndReadHeader] frames_x=%u frames_y=%u gs=%u rows=%u cols=%u  %lu us\n",
                 (unsigned)header_.frame_count_x, (unsigned)header_.frame_count_y,
@@ -128,8 +154,15 @@ void SdManager::readFrameFromFile(uint8_t *buffer, uint16_t frame_index,
   uint32_t t0 = micros();
   uint32_t file_position = pattern_header_size
                            + frame_index * byte_count_per_frame;
-  pattern_file_.seek(file_position);
-  pattern_file_.read(buffer, byte_count_per_frame);
+
+  if (pattern_cache_
+      && file_position + (uint32_t)byte_count_per_frame <= pattern_cache_size_) {
+    memcpy(buffer, pattern_cache_ + file_position, (uint32_t)byte_count_per_frame);
+  } else {
+    pattern_file_.seekSet(file_position);
+    pattern_file_.read(buffer, byte_count_per_frame);
+  }
+
   uint32_t dt = micros() - t0;
   Serial.printf("[SdManager::readFrameFromFile] frame_index=%u bytes=%lu  %lu us\n",
                 frame_index, (uint32_t)byte_count_per_frame, dt);
