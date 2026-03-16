@@ -12,16 +12,19 @@ CommandProcessor cmdProc(net, sdMgr, spi);
 elapsedMillis sinceIpPrint;
 static constexpr uint32_t IP_PRINT_INTERVAL_MS = 5000;
 
+void blinkStartupPattern();
 void setupInterruptPriorities();
 
 void setup() {
   Serial.begin(115200);
 
   sdMgr.begin();
-  spi.begin();
   net.begin();
   cmdProc.begin();
 
+  blinkStartupPattern();
+
+  spi.begin();
   setupInterruptPriorities();
 }
 
@@ -34,6 +37,26 @@ void loop() {
   if (Serial && sinceIpPrint >= IP_PRINT_INTERVAL_MS) {
     sinceIpPrint = 0;
     Serial.printf("IP: %s\n", net.ipAddress());
+  }
+}
+
+void blinkStartupPattern() {
+  static constexpr uint8_t LED_PIN = LED_BUILTIN;
+  static constexpr uint32_t SHORT_MS = 100;
+  static constexpr uint32_t LONG_MS = 300;
+  static constexpr uint32_t PAUSE_MS = 100;
+
+  pinMode(LED_PIN, OUTPUT);
+
+  // Pattern: 3 long, 1 long, 1 short, 1 long
+  const uint32_t pattern[] = {LONG_MS, LONG_MS,  LONG_MS,
+                              LONG_MS, SHORT_MS, LONG_MS};
+
+  for (uint32_t dur : pattern) {
+    digitalWriteFast(LED_PIN, HIGH);
+    delay(dur);
+    digitalWriteFast(LED_PIN, LOW);
+    delay(PAUSE_MS);
   }
 }
 
