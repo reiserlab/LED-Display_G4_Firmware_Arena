@@ -106,6 +106,18 @@ constexpr uint16_t byte_count_per_pattern_frame_max
       + pattern_row_signifier_byte_count_per_row * panel_count_per_frame_row_max
       + 7; // 7947
 
+// Byte count per pattern frame (includes row signifiers) — compile-time constants
+constexpr uint64_t byte_count_per_pattern_frame_grayscale
+    = (uint64_t)byte_count_per_panel_grayscale
+          * panel_count_per_frame_row * panel_count_per_frame_col
+      + (uint64_t)pattern_row_signifier_byte_count_per_row
+          * panel_count_per_frame_row;
+constexpr uint64_t byte_count_per_pattern_frame_binary
+    = (uint64_t)byte_count_per_panel_binary
+          * panel_count_per_frame_row * panel_count_per_frame_col
+      + (uint64_t)pattern_row_signifier_byte_count_per_row
+          * panel_count_per_frame_row;
+
 // Display refresh defaults
 constexpr uint32_t refresh_rate_grayscale_default = 300;
 constexpr uint32_t refresh_rate_binary_default = 1000;

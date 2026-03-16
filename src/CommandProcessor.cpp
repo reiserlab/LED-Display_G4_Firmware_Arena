@@ -138,6 +138,7 @@ void CommandProcessor::handleBinaryCommand(const ParsedCommand &cmd) {
 }
 
 void CommandProcessor::handleStreamCommand(const ParsedCommand &cmd) {
+  uint32_t t0 = micros();
   const uint8_t *buf = cmd.data;
   // buf[0] = 0x32, buf[1..2] = data_length, buf[3..4] = analog_x, buf[5..6] = analog_y
   // buf[7..] = frame data
@@ -145,12 +146,20 @@ void CommandProcessor::handleStreamCommand(const ParsedCommand &cmd) {
   const uint8_t *frame_data = buf + stream_header_byte_count;
   uint32_t frame_byte_count = cmd.data_len - stream_header_byte_count;
 
+  uint16_t analog_x, analog_y;
+  memcpy(&analog_x, buf + 3, sizeof(analog_x));
+  memcpy(&analog_y, buf + 5, sizeof(analog_y));
+
   bool gs;
   if (frame_byte_count == sd_.byteCountPerFrameGrayscale()) {
     gs = true;
   } else if (frame_byte_count == sd_.byteCountPerFrameBinary()) {
     gs = false;
   } else {
+    DBG_PRINTF("[CommandProcessor::handleStreamCommand] bad frame size=%lu (expected gs=%lu bin=%lu)\n",
+               frame_byte_count,
+               (uint32_t)sd_.byteCountPerFrameGrayscale(),
+               (uint32_t)sd_.byteCountPerFrameBinary());
     enterAllOff();
     net_.sendResponse(STREAM_FRAME_CMD, 0, "");
     return;
@@ -159,17 +168,25 @@ void CommandProcessor::handleStreamCommand(const ParsedCommand &cmd) {
   grayscale_ = gs;
 
   // Decode and fill frame buffer
+  uint32_t t1 = micros();
   spi_.decodePatternFrame(frame_data, grayscale_);
+  uint32_t t2 = micros();
   spi_.fillBufferFromDecoded(frame_buf_, grayscale_);
+  uint32_t t3 = micros();
 
   // Transition to streaming
   if (state_ != ArenaState::STREAMING_FRAME) {
     spi_.disarmRefreshTimer();
     state_ = ArenaState::STREAMING_FRAME;
     spi_.armRefreshTimer(refresh_rate_hz_);
+    DBG_PRINTF("[CommandProcessor::handleStreamCommand] started streaming gs=%u refresh=%lu Hz\n",
+               grayscale_, refresh_rate_hz_);
   }
 
   net_.sendResponse(STREAM_FRAME_CMD, 0, "");
+  DBG_PRINTF("[CommandProcessor::handleStreamCommand] bytes=%lu gs=%u ax=%u ay=%u  decode=%lu fill=%lu total=%lu us\n",
+             frame_byte_count, grayscale_, analog_x, analog_y,
+             t2 - t1, t3 - t2, micros() - t0);
 }
 
 // ---------------------------------------------------------------------------

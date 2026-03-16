@@ -177,19 +177,9 @@ void SdManager::readFrameFromFile(uint8_t *buffer, uint16_t frame_index,
 }
 
 uint64_t SdManager::byteCountPerFrameGrayscale() const {
-  uint64_t result = (uint64_t)byte_count_per_panel_grayscale
-                        * panel_count_per_frame_row * panel_count_per_frame_col
-                    + (uint64_t)pattern_row_signifier_byte_count_per_row
-                          * panel_count_per_frame_row;
-  DBG_PRINTF("[SdManager::byteCountPerFrameGrayscale] result=%lu\n", (uint32_t)result);
-  return result;
+  return byte_count_per_pattern_frame_grayscale;
 }
 
 uint64_t SdManager::byteCountPerFrameBinary() const {
-  uint64_t result = (uint64_t)byte_count_per_panel_binary
-                        * panel_count_per_frame_row * panel_count_per_frame_col
-                    + (uint64_t)pattern_row_signifier_byte_count_per_row
-                          * panel_count_per_frame_row;
-  DBG_PRINTF("[SdManager::byteCountPerFrameBinary] result=%lu\n", (uint32_t)result);
-  return result;
+  return byte_count_per_pattern_frame_binary;
 }
