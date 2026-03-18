@@ -31,6 +31,7 @@ class NetworkManager {
   void sendRaw(const uint8_t *data, size_t len);
 
   const char *ipAddress() const { return ip_str_; }
+  const char *macAddress() const { return mac_str_; }
 
  private:
   EthernetServer server_{AC::constants::ethernet_server_port};
@@ -51,6 +52,7 @@ class NetworkManager {
   size_t  resp_len_ = 0;
 
   char ip_str_[32] = "";
+  char mac_str_[18] = "";  // "XX:XX:XX:XX:XX:XX"
 
   void parseIncoming();
 };

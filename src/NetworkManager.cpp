@@ -17,11 +17,16 @@ void NetworkManager::serviceTcp() {
     }
   }
 
-  // Cache IP once available
+  // Cache IP and MAC once available
   if (ip_str_[0] == '\0') {
     IPAddress ip = Ethernet.localIP();
     if (ip != IPAddress{0, 0, 0, 0}) {
       snprintf(ip_str_, sizeof(ip_str_), "%u.%u.%u.%u", ip[0], ip[1], ip[2], ip[3]);
+
+      uint8_t mac[6];
+      Ethernet.macAddress(mac);
+      snprintf(mac_str_, sizeof(mac_str_), "%02X:%02X:%02X:%02X:%02X:%02X",
+               mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
     }
   }
 

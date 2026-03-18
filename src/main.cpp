@@ -10,8 +10,7 @@ SpiManager       spi;
 CommandProcessor cmdProc(net, sdMgr, spi);
 
 #ifdef DEBUG_SERIAL
-elapsedMillis sinceIpPrint;
-static constexpr uint32_t IP_PRINT_INTERVAL_MS = 5000;
+static bool ipPrinted = false;
 #endif
 
 void blinkStartupPattern();
@@ -39,9 +38,9 @@ void loop() {
   net.flushResponses();     // 4. Send ready responses over TCP
 
 #ifdef DEBUG_SERIAL
-  if (Serial && sinceIpPrint >= IP_PRINT_INTERVAL_MS) {
-    sinceIpPrint = 0;
-    DBG_PRINTF("IP: %s\n", net.ipAddress());
+  if (!ipPrinted && Serial && net.ipAddress()[0] != '\0') {
+    DBG_PRINTF("MAC: %s  IP: %s\n", net.macAddress(), net.ipAddress());
+    ipPrinted = true;
   }
 #endif
 }
@@ -54,15 +53,21 @@ void blinkStartupPattern() {
 
   pinMode(LED_PIN, OUTPUT);
 
-  // Pattern: 3 long, 1 long, 1 short, 1 long
-  const uint32_t pattern[] = {LONG_MS, LONG_MS,  LONG_MS,
-                              LONG_MS, SHORT_MS, LONG_MS};
+  // Pattern: 3 long, [300 ms gap], 1 long, 1 short, 1 long
+  static constexpr uint32_t GROUP_PAUSE_MS = 300;
+  const uint32_t pattern[][3] = {
+      {LONG_MS, LONG_MS,  LONG_MS}, // morse: O
+      {LONG_MS, SHORT_MS, LONG_MS}  // morse: K
+  };
 
-  for (uint32_t dur : pattern) {
-    digitalWriteFast(LED_PIN, HIGH);
-    delay(dur);
-    digitalWriteFast(LED_PIN, LOW);
-    delay(PAUSE_MS);
+  for (size_t g = 0; g < sizeof(pattern) / sizeof(pattern[0]); ++g) {
+    if (g > 0) delay(GROUP_PAUSE_MS);
+    for (size_t i = 0; i < sizeof(pattern[0]) / sizeof(pattern[0][0]); ++i) {
+      digitalWriteFast(LED_PIN, HIGH);
+      delay(pattern[g][i]);
+      digitalWriteFast(LED_PIN, LOW);
+      delay(PAUSE_MS);
+    }
   }
 }
 
