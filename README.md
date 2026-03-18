@@ -1,6 +1,6 @@
-# G4.1 Arena Skeleton
+# G4.1 Arena Slim
 
-Reimplements the G4.1-ArenaController for Teensy 4.1 without the QP/state-machine framework. Uses a simple main loop with state tracking.
+Reimplements the [G4.1-ArenaController for Teensy 4.1](https://github.com/janelia-arduino/ArenaController) without the QP/state-machine framework and with about 1/4 of lines of code. Uses a simple main loop with state tracking.
 
 - TCP command server (QNEthernet, port 62222, G4 binary protocol).
 - Pattern file playback from SD card (SdFat, SDIO).
