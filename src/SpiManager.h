@@ -49,7 +49,14 @@ class SpiManager {
   // Flag set by refresh timer ISR — checked in main loop.
   volatile bool refreshFlag = false;
 
+  // Hook called while transferFrame waits on SPI DMA and between panel sets.
+  // Lets the network stack drain its 5-slot RX ring every ~200 us instead of
+  // only between frames (~3 ms at 300 Hz). Null disables it.
+  using IdleHook = void (*)();
+  void setIdleHook(IdleHook hook) { idleHook_ = hook; }
+
  private:
+  IdleHook idleHook_ = nullptr;
   SPIClass *region_spi_[AC::constants::region_count_per_frame]
       = { &SPI, &SPI1 };
 
