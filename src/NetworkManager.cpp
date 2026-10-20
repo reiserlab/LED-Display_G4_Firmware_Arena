@@ -10,6 +10,10 @@ void NetworkManager::serviceTcp() {
   if (!client_ || !client_.connected()) {
     rx_len_ = 0;
     cmd_ready_ = false;
+    // Queued responses belong to the old connection; never send them to the
+    // next client
+    resp_len_ = 0;
+    resp_blocked_ = false;
     EthernetClient newClient = server_.accept();
     if (newClient) {
       client_ = newClient;
@@ -98,28 +102,49 @@ void NetworkManager::flushResponses() {
   if (!client_ || !client_.connected()) return;
   if (resp_len_ == 0) return;
 
-  client_.write(resp_buf_, resp_len_);
+  // write() takes fewer bytes than offered when lwIP's send buffer or segment
+  // queue is full or a heap allocation fails (e.g. the peer stopped ACKing).
+  // Keep the rest queued and retry on the next pass.
+  size_t written = client_.write(resp_buf_, resp_len_);
   client_.flush();
-  resp_len_ = 0;
+  if (written < resp_len_) {
+    if (!resp_blocked_) {
+      DBG_PRINTF("[NetworkManager::flushResponses] short write %u of %u bytes, retrying\n",
+                 (unsigned)written, (unsigned)resp_len_);
+    }
+    resp_blocked_ = true;
+    memmove(resp_buf_, resp_buf_ + written, resp_len_ - written);
+  } else if (resp_blocked_) {
+    DBG_PRINTF("[NetworkManager::flushResponses] queued responses sent\n");
+    resp_blocked_ = false;
+  }
+  resp_len_ -= written;
 }
 
 void NetworkManager::sendResponse(uint8_t cmd_echo, uint8_t status,
                                   const char *message) {
   size_t msg_len = strlen(message);
+  uint8_t response[RESP_BUF_SIZE];
   uint8_t response_byte_count = 0;
-  resp_buf_[response_byte_count++] = 2;  // placeholder length
-  resp_buf_[response_byte_count++] = status;
-  resp_buf_[response_byte_count++] = cmd_echo;
+  response[response_byte_count++] = 2;  // placeholder length
+  response[response_byte_count++] = status;
+  response[response_byte_count++] = cmd_echo;
   if (msg_len > 0 && (response_byte_count + msg_len) < RESP_BUF_SIZE) {
-    memcpy(resp_buf_ + response_byte_count, message, msg_len);
+    memcpy(response + response_byte_count, message, msg_len);
     response_byte_count += msg_len;
   }
-  resp_buf_[0] = response_byte_count - 1;  // length excluding length byte
-  resp_len_ = response_byte_count;
+  response[0] = response_byte_count - 1;  // length excluding length byte
+  sendRaw(response, response_byte_count);
 }
 
 void NetworkManager::sendRaw(const uint8_t *data, size_t len) {
-  if (len > RESP_BUF_SIZE) return;
-  memcpy(resp_buf_, data, len);
-  resp_len_ = len;
+  // Drop whole rather than truncate, so the stream never carries a partial
+  // response
+  if (len > RESP_BUF_SIZE - resp_len_) {
+    DBG_PRINTF("[NetworkManager::sendRaw] queue full (%u of %u bytes used), dropped %u-byte response\n",
+               (unsigned)resp_len_, (unsigned)RESP_BUF_SIZE, (unsigned)len);
+    return;
+  }
+  memcpy(resp_buf_ + resp_len_, data, len);
+  resp_len_ += len;
 }

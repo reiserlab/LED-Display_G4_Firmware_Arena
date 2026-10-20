@@ -27,7 +27,8 @@ class NetworkManager {
 
   // Build and queue a binary response: [len, status, echo_cmd, ...message]
   void sendResponse(uint8_t cmd_echo, uint8_t status, const char *message);
-  // Send raw bytes as response
+  // Queue raw bytes as response. Appends behind any responses not yet sent;
+  // a response that doesn't fit is dropped whole.
   void sendRaw(const uint8_t *data, size_t len);
 
   const char *ipAddress() const { return ip_str_; }
@@ -46,10 +47,13 @@ class NetworkManager {
   ParsedCommand parsed_cmd_;
   bool cmd_ready_ = false;
 
-  // Response buffer
+  // Response queue: every byte not yet accepted by TCP, in send order. A
+  // second response in the same loop pass or a short write must not drop
+  // an earlier one, or the client waits for an ack that never comes.
   static constexpr size_t RESP_BUF_SIZE = AC::constants::byte_count_per_response_max;
   uint8_t resp_buf_[RESP_BUF_SIZE];
   size_t  resp_len_ = 0;
+  bool    resp_blocked_ = false;  // last flush left bytes queued
 
   char ip_str_[32] = "";
   char mac_str_[18] = "";  // "XX:XX:XX:XX:XX:XX"
