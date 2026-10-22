@@ -28,6 +28,11 @@ void setup() {
   blinkStartupPattern();
 
   spi.begin();
+  // QNEthernet only pulls frames out of its RX ring from Ethernet.loop().
+  // transferFrame blocks ~2.5 ms of every 3.3 ms refresh tick, so without
+  // this hook a burst of more than 5 frames in that window is dropped
+  // silently and the PC's TCP has to retransmit (0.3 s minimum on Windows).
+  spi.setIdleHook([] { Ethernet.loop(); });
   setupInterruptPriorities();
 }
 

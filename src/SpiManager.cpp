@@ -77,8 +77,10 @@ void SpiManager::transferPanelSet(const uint8_t *buffer, uint16_t &pos,
   region_spi_[1]->transfer(buffer + pos + panel_byte_count, nullptr,
                            panel_byte_count);
 
-  // Wait for region 0 DMA to complete
-  while (!dmaComplete_) { /* spin */ }
+  // Wait for region 0 DMA to complete; service the network while waiting
+  while (!dmaComplete_) {
+    if (idleHook_) idleHook_();
+  }
 
   pos += panel_byte_count * region_count_per_frame;
 }
@@ -94,6 +96,7 @@ void SpiManager::transferFrame(const uint8_t *buffer, bool grayscale) {
       enablePanelSelect(row, col);
       transferPanelSet(buffer, pos, panel_byte_count);
       disablePanelSelect(row, col);
+      if (idleHook_) idleHook_();
     }
   }
 }
